@@ -8,3 +8,57 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface AnalyzeCodeBody {
+  /** The code to analyze */
+  code: string;
+  /** Programming language (e.g. python, javascript) */
+  language?: string;
+}
+
+export interface AnalysisResult {
+  id: number;
+  /** e.g. O(n^2) */
+  timeComplexity: string;
+  /** e.g. O(n) */
+  spaceComplexity: string;
+  /** Human-readable explanation */
+  explanation: string;
+  /** Optimization suggestions */
+  suggestions: string[];
+  language: string;
+  code: string;
+  createdAt: string;
+}
+
+export interface HistoryItem {
+  id: number;
+  timeComplexity: string;
+  spaceComplexity: string;
+  explanation: string;
+  language: string;
+  /** First 120 chars of the code */
+  codeSnippet: string;
+  createdAt: string;
+}
+
+export interface ComplexityCount {
+  complexity: string;
+  count: number;
+}
+
+export interface LanguageCount {
+  language: string;
+  count: number;
+}
+
+export interface AnalysisStats {
+  totalAnalyses: number;
+  timeComplexityBreakdown: ComplexityCount[];
+  spaceComplexityBreakdown: ComplexityCount[];
+  languageBreakdown: LanguageCount[];
+}
+
+export interface ErrorResponse {
+  error: string;
+}

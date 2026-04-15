@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
@@ -10,6 +9,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: analysis
+    description: Big-O complexity analysis
 paths:
   /healthz:
     get:
@@ -24,6 +25,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /analyze:
+    post:
+      operationId: analyzeCode
+      tags: [analysis]
+      summary: Analyze code for Big-O complexity
+      description: Analyzes Python code and returns time and space complexity estimates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeCodeBody"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /history:
+    get:
+      operationId: getHistory
+      tags: [analysis]
+      summary: Get analysis history
+      description: Returns recent analysis history
+      responses:
+        "200":
+          description: List of past analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryItem"
+  /stats:
+    get:
+      operationId: getStats
+      tags: [analysis]
+      summary: Get complexity distribution stats
+      description: Returns aggregated stats about past analyses
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisStats"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +93,124 @@ components:
           type: string
       required:
         - status
-
+    AnalyzeCodeBody:
+      type: object
+      properties:
+        code:
+          type: string
+          description: The code to analyze
+        language:
+          type: string
+          description: Programming language (e.g. python, javascript)
+          default: python
+      required:
+        - code
+    AnalysisResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        timeComplexity:
+          type: string
+          description: e.g. O(n^2)
+        spaceComplexity:
+          type: string
+          description: e.g. O(n)
+        explanation:
+          type: string
+          description: Human-readable explanation
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: Optimization suggestions
+        language:
+          type: string
+        code:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - timeComplexity
+        - spaceComplexity
+        - explanation
+        - suggestions
+        - language
+        - code
+        - createdAt
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        timeComplexity:
+          type: string
+        spaceComplexity:
+          type: string
+        explanation:
+          type: string
+        language:
+          type: string
+        codeSnippet:
+          type: string
+          description: First 120 chars of the code
+        createdAt:
+          type: string
+      required:
+        - id
+        - timeComplexity
+        - spaceComplexity
+        - explanation
+        - language
+        - codeSnippet
+        - createdAt
+    AnalysisStats:
+      type: object
+      properties:
+        totalAnalyses:
+          type: integer
+        timeComplexityBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplexityCount"
+        spaceComplexityBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplexityCount"
+        languageBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/LanguageCount"
+      required:
+        - totalAnalyses
+        - timeComplexityBreakdown
+        - spaceComplexityBreakdown
+        - languageBreakdown
+    ComplexityCount:
+      type: object
+      properties:
+        complexity:
+          type: string
+        count:
+          type: integer
+      required:
+        - complexity
+        - count
+    LanguageCount:
+      type: object
+      properties:
+        language:
+          type: string
+        count:
+          type: integer
+      required:
+        - language
+        - count
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

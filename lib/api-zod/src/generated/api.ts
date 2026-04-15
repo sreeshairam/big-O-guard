@@ -14,3 +14,69 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Analyzes Python code and returns time and space complexity estimates
+ * @summary Analyze code for Big-O complexity
+ */
+export const analyzeCodeBodyLanguageDefault = `python`;
+
+export const AnalyzeCodeBody = zod.object({
+  code: zod.string().describe("The code to analyze"),
+  language: zod
+    .string()
+    .default(analyzeCodeBodyLanguageDefault)
+    .describe("Programming language (e.g. python, javascript)"),
+});
+
+export const AnalyzeCodeResponse = zod.object({
+  id: zod.number(),
+  timeComplexity: zod.string().describe("e.g. O(n^2)"),
+  spaceComplexity: zod.string().describe("e.g. O(n)"),
+  explanation: zod.string().describe("Human-readable explanation"),
+  suggestions: zod.array(zod.string()).describe("Optimization suggestions"),
+  language: zod.string(),
+  code: zod.string(),
+  createdAt: zod.string(),
+});
+
+/**
+ * Returns recent analysis history
+ * @summary Get analysis history
+ */
+export const GetHistoryResponseItem = zod.object({
+  id: zod.number(),
+  timeComplexity: zod.string(),
+  spaceComplexity: zod.string(),
+  explanation: zod.string(),
+  language: zod.string(),
+  codeSnippet: zod.string().describe("First 120 chars of the code"),
+  createdAt: zod.string(),
+});
+export const GetHistoryResponse = zod.array(GetHistoryResponseItem);
+
+/**
+ * Returns aggregated stats about past analyses
+ * @summary Get complexity distribution stats
+ */
+export const GetStatsResponse = zod.object({
+  totalAnalyses: zod.number(),
+  timeComplexityBreakdown: zod.array(
+    zod.object({
+      complexity: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  spaceComplexityBreakdown: zod.array(
+    zod.object({
+      complexity: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  languageBreakdown: zod.array(
+    zod.object({
+      language: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});

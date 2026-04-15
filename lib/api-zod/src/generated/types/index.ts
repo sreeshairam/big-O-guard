@@ -6,4 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./analysisResult";
+export * from "./analysisStats";
+export * from "./analyzeCodeBody";
+export * from "./complexityCount";
+export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./historyItem";
+export * from "./languageCount";
