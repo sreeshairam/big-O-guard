@@ -47,10 +47,7 @@ check("O(n^2) nested loops", r["time_complexity"], "O(n^2)")
 
 # O(2^n) — recursion
 code_rec = (
-    "def fib(n):\n"
-    "    if n <= 1:\n"
-    "        return n\n"
-    "    return fib(n-1) + fib(n-2)"
+    "def fib(n):\n    if n <= 1:\n        return n\n    return fib(n-1) + fib(n-2)"
 )
 r, _ = static_analysis(code_rec)
 check("O(2^n) recursion", r["time_complexity"], "O(2^n)")
@@ -85,7 +82,7 @@ print(json.dumps(output, indent=2))
 
 passed = sum(results)
 total = len(results)
-print(f"\n{'='*40}")
+print(f"\n{'=' * 40}")
 print(f"Results: {passed}/{total} tests passed")
 
 if passed < total:
