@@ -3,18 +3,14 @@ import ast
 import os
 import time
 import tracemalloc
-import sys
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
-
 
 # ─── Static Analysis ──────────────────────────────────────────────────────────
 
 
 class ComplexityAnalyzer(ast.NodeVisitor):
-    """Walk the AST and detect loops, nested loops, and recursion."""
-
     def __init__(self, func_names=None):
         self.loop_depth = 0
         self.max_loop_depth = 0
@@ -39,9 +35,9 @@ class ComplexityAnalyzer(ast.NodeVisitor):
     visit_While = visit_For
 
     def visit_Call(self, node):
-        # Detect direct recursion: function calling itself
         func = node.func
         called_name = None
+
         if isinstance(func, ast.Name):
             called_name = func.id
         elif isinstance(func, ast.Attribute):
@@ -50,19 +46,15 @@ class ComplexityAnalyzer(ast.NodeVisitor):
         if called_name and self.current_func and called_name == self.current_func:
             self.has_recursion = True
 
-        # Detect indirect recursion: any call to a known function name
-        if called_name and called_name in self.func_names:
-            pass  # Could extend for mutual recursion
-
         self.generic_visit(node)
 
 
 def collect_function_names(tree):
-    names = set()
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            names.add(node.name)
-    return names
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
 
 def static_analysis(code: str):
@@ -79,51 +71,42 @@ def static_analysis(code: str):
     recursion = analyzer.has_recursion
 
     if recursion:
-        time_complexity = "O(2^n)"
-        explanation = (
-            "Recursive calls detected. Without memoisation the algorithm "
-            "branches exponentially — typically O(2^n) for naive recursion "
-            "(e.g. Fibonacci). If memoised, this can reduce to O(n)."
-        )
-    elif depth >= 2:
-        time_complexity = "O(n^2)"
-        explanation = (
-            f"Nested loops detected (max depth: {depth}). "
-            "Each level of nesting multiplies the iteration count, "
-            "giving O(n^2) for two levels, O(n^3) for three, and so on."
-        )
-    elif depth == 1:
-        time_complexity = "O(n)"
-        explanation = (
-            "A single loop over the input was detected. "
-            "Execution scales linearly with input size — O(n)."
-        )
-    else:
-        time_complexity = "O(1)"
-        explanation = (
-            "No loops or recursion detected. "
-            "The algorithm runs in constant time regardless of input size — O(1)."
-        )
+        return {
+            "time_complexity": "O(2^n)",
+            "loop_depth": depth,
+            "has_recursion": True,
+            "explanation": "Recursive calls detected → exponential time.",
+        }, None
 
-    return {
-        "time_complexity": time_complexity,
-        "loop_depth": depth,
-        "has_recursion": recursion,
-        "explanation": explanation,
-    }, None
+    elif depth >= 2:
+        return {
+            "time_complexity": "O(n^2)",
+            "loop_depth": depth,
+            "has_recursion": False,
+            "explanation": f"{depth} nested loops detected → polynomial time.",
+        }, None
+
+    elif depth == 1:
+        return {
+            "time_complexity": "O(n)",
+            "loop_depth": depth,
+            "has_recursion": False,
+            "explanation": "Single loop detected → linear time.",
+        }, None
+
+    else:
+        return {
+            "time_complexity": "O(1)",
+            "loop_depth": depth,
+            "has_recursion": False,
+            "explanation": "No loops/recursion → constant time.",
+        }, None
 
 
 # ─── Runtime & Space Analysis ─────────────────────────────────────────────────
 
 
 def runtime_and_space_analysis(code: str):
-    """
-    Execute the code in a sandboxed namespace, measure wall-clock time
-    and peak memory usage via tracemalloc.
-
-    Returns a dict with execution_time (ms), peak_memory (KB),
-    space_complexity, and any error message.
-    """
     namespace = {}
     error = None
 
@@ -131,18 +114,17 @@ def runtime_and_space_analysis(code: str):
     start = time.perf_counter()
 
     try:
-        exec(compile(code, "<string>", "exec"), namespace)  # noqa: S102
+        compiled_code = compile(code, "<string>", "exec")
+        exec(compiled_code, namespace)
     except Exception as exc:
         error = str(exc)
-    finally:
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        _, peak_bytes = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    _, peak_bytes = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
 
     peak_kb = peak_bytes / 1024
 
-    # Rough space heuristic: count how many user-defined collections were created
-    # Skip dunder names injected by Python's exec() environment (e.g. __builtins__)
     collections_created = sum(
         1
         for k, v in namespace.items()
@@ -151,16 +133,10 @@ def runtime_and_space_analysis(code: str):
 
     if collections_created == 0:
         space_complexity = "O(1)"
-        space_note = "No data structures allocated — constant space."
-    elif collections_created == 1:
-        space_complexity = "O(n)"
-        space_note = "One collection detected — likely linear space."
+        space_note = "Constant space."
     else:
         space_complexity = "O(n)"
-        space_note = (
-            f"{collections_created} collections detected — "
-            "space depends on their combined sizes."
-        )
+        space_note = "Uses collections → linear space."
 
     return {
         "execution_time_ms": round(elapsed_ms, 4),
@@ -183,19 +159,32 @@ def index():
 def analyze():
     data = request.get_json(force=True, silent=True) or {}
     code = data.get("code", "").strip()
-    test_output = (
-        subprocess.getoutput("python test_analyzer.py")
-        + "\n\n🎉 9/9 TESTS PASSED!\nCI/CD READY - SDG 11 Hackathon!"
-    )
 
     if not code:
         return jsonify({"error": "No code provided."}), 400
 
+    # 🔍 Static Analysis
     static, err = static_analysis(code)
     if err:
-        return jsonify({"error": err}), 400
+        return jsonify({"error": err, "ci_cd": "❌ NOT READY"}), 400
 
+    # ⚡ Runtime Analysis
     runtime = runtime_and_space_analysis(code)
+
+    # 🚨 Stop if runtime error
+    if runtime["runtime_error"]:
+        return jsonify(
+            {"error": runtime["runtime_error"], "ci_cd": "❌ NOT READY"}
+        ), 400
+
+    # 🧪 Run test file
+    test_output = subprocess.getoutput("python test_analyzer.py")
+
+    # Decide CI/CD status
+    if "FAILED" in test_output or "Error" in test_output:
+        ci_cd_status = "❌ NOT READY"
+    else:
+        ci_cd_status = "🚀 READY!"
 
     result = {
         "time_complexity": static["time_complexity"],
@@ -204,18 +193,9 @@ def analyze():
         "peak_memory_kb": runtime["peak_memory_kb"],
         "explanation": static["explanation"],
         "space_note": runtime["space_note"],
-        "details": {
-            "loop_depth": static["loop_depth"],
-            "has_recursion": static["has_recursion"],
-            "runtime_error": runtime["runtime_error"],
-        },
         "test_output": test_output,
         "test_suite": {
-            "functional": "5/5 ✓",
-            "big_o_detection": "4/4 ✓",
-            "runtime_space": "2/2 ✓",
-            "ci_cd": "🚀 READY!",
-            "total": "🎉 9/9 PASSED!",
+            "ci_cd": ci_cd_status,
         },
     }
 
